@@ -1,6 +1,7 @@
 #classes with object obstractions
 import asyncio
 from asyncua import Client, ua
+
 class productionDevice:
     def __init__(self, client, repr):
         self.client = client
@@ -35,3 +36,9 @@ class productionDevice:
         telemetryData["BadCount"] = self.badCount
         telemetryData["Temperature"] = self.temperature
         return telemetryData
+    
+    
+
+    
+   
+    
