@@ -21,6 +21,11 @@ class ProductionAgent:
         except:
             self.iotClient.stutdown()
             raise
+    def message_received_handler(message):
+        print("the data in the message received was ")
+        print(message.data)
+        print("custom properties are")
+        print(message.custom_properties)
 
     async def readUANodes(self):
         print("Reading production line devices...")
@@ -34,26 +39,26 @@ class ProductionAgent:
             await temp.getDevProp()
             self.deviceBox.append(temp)
 
-    async def updateTwinAsync(self): #report into the twin
-        # Retrieve the twin
-        twin = await self.iotClient.get_twin()
-        print(f"\tInitial twin value received:\n{twin}")
-        reported_properties = {}
+    # async def updateTwinAsync(self): #report into the twin
+    #     # Retrieve the twin
+    #     twin = await self.iotClient.get_twin()
+    #     print(f"\tInitial twin value received:\n{twin}")
+    #     reported_properties = {}
 
-        for device in self.deviceBox:
-            device_id = "Device " + str(device.repr)[-1]
-            reported_properties[device_id] = {
-                "DateTimeLastAppLaunch": datetime.datetime.now().isoformat(),
-                "ProductionRate": device.productionRate,
-                "DeviceErrors": "0000"
-            }
-        await self.iotClient.patch_twin_reported_properties(reported_properties)
+    #     for device in self.deviceBox:
+    #         device_id = "Device " + str(device.repr)[-1]
+    #         reported_properties[device_id] = {
+    #             "DateTimeLastAppLaunch": datetime.datetime.now().isoformat(),
+    #             "ProductionRate": device.productionRate,
+    #             "DeviceErrors": "0000"
+    #         }
+    #     await self.iotClient.patch_twin_reported_properties(reported_properties)
 
-        message = Message(json.dumps(reported_properties))
-        message.content_encoding = "utf-8"
-        message.content_type = "application/json"
-        # Send the message
-        await self.iotClient.send_message(message)
+    #     message = Message(json.dumps(reported_properties))
+    #     message.content_encoding = "utf-8"
+    #     message.content_type = "application/json"
+    #     # Send the message
+    #     await self.iotClient.send_message(message)
         
     async def twinPatchHandler(self, desired_properties):
         print("Desired property change received: {}".format(desired_properties))
@@ -61,26 +66,7 @@ class ProductionAgent:
             "DateTimeLastDesiredPropertyChangeReceived": datetime.datetime.now().isoformat()
         }
         await self.iotClient.patch_twin_reported_properties(reported_properties)
-
-    async def update_device_telemetry(self):
-        while True:
-            tasks = [device.getDevProp() for device in self.deviceBox]
-            await asyncio.gather(*tasks)
-            print("updating devices in a box ... ")
-            telemetry_data=[]
-            for dev in self.deviceBox:
-                telemetry_dict = dev.packTelemetry()
-                telemetry_data.append(telemetry_dict)
-            message_payload = json.dumps(telemetry_data)
-            message = Message(message_payload)
-            message.content_encoding = "utf-8"
-            message.content_type = "application/json"
             
-            print("Sending message: {}".format(message))
-            self.iotClient.send_message(message)
-            print(" d2c sent")
-            await asyncio.sleep(60)
-
     async def methodRequestHandler(self, method_request):
         print(MSG_LOG.format(name=method_request.name, deviceId=method_request.deviceId))
         if method_request.name == "EmergencyStop":
@@ -103,25 +89,38 @@ class ProductionAgent:
         await self.iotClient.send_method_response(method_response)
 
     async def initializeHandlers(self):
-        # Attach the Cloud-to-Device message handler
-        #self.client.on_message_received = self.DtoC
-        # Attach the direct method handler (if any direct methods are to be handled)
-        self.iotClient.on_method_request_received = self.methodRequestHandler
-        # Attach the desired property update callback
-        self.iotClient.on_twin_desired_properties_patch_received = self.twinPatchHandler
-    
-    async def run(self):
         try:
             await self.initialize()
+            self.iotClient.on_method_request_received = self.methodRequestHandler
+            self.iotClient.on_twin_desired_properties_patch_received = self.twinPatchHandler
+            self.iotClient.on_message_received_handler = self.message_received_handler
+            twin =  self.iotClient.get_twin()#✅
+            print ( "Twin at startup is" )
+            print ( twin )
+            await self.readUANodes()
         except Exception as e:
-            print(f"IOT HUB Connection failed: {e}")
-            await self.iotClient.shutdown()
-            return
-        await self.initializeHandlers()
-        await self.readUANodes()
-        telemetry_task = asyncio.create_task(self.update_device_telemetry())
-        # Run the telemetry task indefinitely
-        await telemetry_task
-
+            print(f"IOT HUB failed: {e}")
+            self.iotClient.shutdown()
+            return   
+       
+    
+    async def run(self):
+        while True:
+            tasks = [device.getDevProp() for device in self.deviceBox]
+            await asyncio.gather(*tasks)
+            telemetry_data=[]
+            for dev in self.deviceBox:
+                telemetry_dict = dev.packTelemetry()
+                telemetry_data.append(telemetry_dict)
+            message_payload = json.dumps(telemetry_data)
+            message = Message(message_payload)
+            #message.content_encoding = "utf-8"
+            #message.content_type = "application/json"
+            
+            print("Sending d2c: {}".format(message))
+            self.iotClient.send_message(message)
+            print("d2c sent.")
+            await asyncio.sleep(60)
+       
         
 

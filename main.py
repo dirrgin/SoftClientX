@@ -20,6 +20,7 @@ async def main():
     else:
         print("OPC UA successful connection")
     iotClient = ProductionAgent(opcClient, _iotDevKey)
+    await iotClient.initializeHandlers()
     await iotClient.run()
    
     '''
