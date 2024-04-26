@@ -1,7 +1,7 @@
 #classes with object obstractions
 import asyncio
 from asyncua import Client, ua
-
+MSG_TXT = '{{"DeviceAddress": {DeviceAddress}, "ProductionStatus": {ProductionStatus}, "WorkOrderId": {WorkOrderId}, "GoodCount": {GoodCount}, "BadCount": {BadCount}, "Temperature": {Temperature}}}'
 class productionDevice:
     def __init__(self, client, repr):
         self.client = client
@@ -28,14 +28,16 @@ class productionDevice:
         self.productionRate = await self.client.get_node(f"{self.repr}/ProductionRate").get_value()
 
     def packTelemetry(self):
-        telemetryData = {}
-        telemetryData["DeviceAddress"] = str(self.repr)
-        telemetryData["ProductionStatus"] = self.productionStatus
-        telemetryData["WorkOrderId"] = self.workorderId
-        telemetryData["GoodCount"] = self.goodCount
-        telemetryData["BadCount"] = self.badCount
-        telemetryData["Temperature"] = self.temperature
-        return telemetryData
+        return MSG_TXT.format(
+            DeviceAddress=str(self.repr),
+            ProductionStatus=self.productionStatus,
+            WorkOrderId=self.workorderId,
+            GoodCount=self.goodCount,
+            BadCount=self.badCount,
+            Temperature=self.temperature
+        )
+        
+
     
     
 
