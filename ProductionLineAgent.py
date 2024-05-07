@@ -1,126 +1,104 @@
-from AbstractDevice import productionDevice, asyncio, MSG_TXT, Client, ua
-from azure.iot.device import IoTHubModuleClient, Message, MethodResponse, MethodRequest
-import datetime, json
+import time, json
+from azure.iot.device import IoTHubDeviceClient, Message, IoTHubModuleClient, MethodResponse, MethodRequest, Message
+from AbstractDevice import productionDevice, asyncio
 
-MSG_LOG = '{{"Name": {name},"DeviceId": {deviceId}}}'
-INTERVAL = 2
 
-class ProductionAgent:
-    def __init__(self, opcClient, connectionString):
-        self.deviceBox = []
-        self.opcClient = opcClient
-        self.amount = None
-        self.iotClient = None
-        self.connectionString = connectionString
+async def d2c(client, device, dev_err=False):
+    #client.send_message(device.packTelemetry())
+    message = {}
+    message["DeviceName"] = str(device.repr)[7:]
+    message["ProductionStatus"] = device.productionStatus
+    message["WorkorderId"] = device.workorderId
+    message["ProductionRate"] = device.ProductionRate
+    message["GoodCount"] = device.goodCount
+    message["BadCount"] = device.badCount
+    message["Temperature"] = device.temperature
+    message["DeviceError"] = device.error
 
-    async def initialize(self):
-        self.iotClient = IoTHubModuleClient.create_from_connection_string(self.connectionString)
-        try: 
-            self.iotClient.connect()
-            print("Successful connection to IOT HUB")
-        except:
-            self.iotClient.stutdown()
-            raise
-    def message_received_handler(message):
-        print("the data in the message received was ")
-        print(message.data)
-        print("custom properties are")
-        print(message.custom_properties)
+    if dev_err:
+        message["IsDevErr"] = "true"
+    else:
+        message["IsDevErr"] = "false"
 
-    async def readUANodes(self):
-        print("Reading production line devices...")
-        nodes={}
-        nodes = await self.opcClient.get_objects_node().get_children()
-        nodes = nodes[1:]
-        self.amount = len(nodes)
-        for node in range(self.amount):
-            nodeRepr = self.opcClient.get_node(nodes[node])
-            temp = productionDevice(self.opcClient, nodeRepr)
-            await temp.getDevProp()
-            self.deviceBox.append(temp)
+    client.send_message(str(message))
 
-    # async def updateTwinAsync(self): #report into the twin
-    #     # Retrieve the twin
-    #     twin = await self.iotClient.get_twin()
-    #     print(f"\tInitial twin value received:\n{twin}")
-    #     reported_properties = {}
+async def twin_reported(client, device):
+    reported_props = {"Device" + str(device.repr)[-1]: {"ProductionRate": device.ProductionRate,
+                                                            "Errors": device.error}}
+    #print("reported_props: \n\t", reported_props)
+    client.patch_twin_reported_properties(reported_props)
 
-    #     for device in self.deviceBox:
-    #         device_id = "Device " + str(device.repr)[-1]
-    #         reported_properties[device_id] = {
-    #             "DateTimeLastAppLaunch": datetime.datetime.now().isoformat(),
-    #             "ProductionRate": device.productionRate,
-    #             "DeviceErrors": "0000"
-    #         }
-    #     await self.iotClient.patch_twin_reported_properties(reported_properties)
 
-    #     message = Message(json.dumps(reported_properties))
-    #     message.content_encoding = "utf-8"
-    #     message.content_type = "application/json"
-    #     # Send the message
-    #     await self.iotClient.send_message(message)
-        
-    async def twinPatchHandler(self, desired_properties):
-        print("Desired property change received: {}".format(desired_properties))
-        reported_properties = {
-            "DateTimeLastDesiredPropertyChangeReceived": datetime.datetime.now().isoformat()
-        }
-        await self.iotClient.patch_twin_reported_properties(reported_properties)
-            
-    async def methodRequestHandler(self, method_request):
-        print(MSG_LOG.format(name=method_request.name, deviceId=method_request.deviceId))
-        if method_request.name == "EmergencyStop":
-            #if it experiences more than 3 errors in under 1 minut
-            try:
-                emStop = self.opcClient.get_node(method_request.deviceId)
-                node = self.opcClient.get_node(method_request.deviceId)
-                await node.call_method(emStop)
-                print("Emergency stop called")
-            except ValueError:
-                response_payload = {"Response": "Invalid parameter"}
-                response_status = 400
-            else:
-                response_payload = {"Response": "Executed direct method {}".format(method_request.name)}
-                response_status = 200
-        else:
-            response_payload = {"Response": "Direct method {} not defined ".format(method_request.name)}
-            response_status = 404
-        method_response = MethodResponse.create_from_method_request(method_request, response_status, response_payload)
-        await self.iotClient.send_method_response(method_response)
+async def compare_production_rates(twin_patch, lst_devices):
+    for i in range(len(lst_devices)):
+        name = "Device" + str(lst_devices[i].repr)[-1]
+        if name in twin_patch.keys() and twin_patch[name] is not None and twin_patch[name]["ProductionRate"] != lst_devices[i].ProductionRate:
+            await lst_devices[i].set_prod_rate()
+            print(f"{name} set production rate successfully")
 
-    async def initializeHandlers(self):
+
+async def receive_twin_desired(client, lst_devices):
+    def twin_patch_handler(twin_patch):
         try:
-            await self.initialize()
-            self.iotClient.on_method_request_received = self.methodRequestHandler
-            self.iotClient.on_twin_desired_properties_patch_received = self.twinPatchHandler
-            self.iotClient.on_message_received_handler = self.message_received_handler
-            twin =  self.iotClient.get_twin()#✅
-            print ( "Twin at startup is" )
-            print ( twin )
-            await self.readUANodes()
+            print("Twin patch received. lest see its keys\n")
+            print(twin_patch.keys())
+            asyncio.run(compare_production_rates(twin_patch, lst_devices))
         except Exception as e:
-            print(f"IOT HUB failed: {e}")
-            self.iotClient.shutdown()
-            return   
-       
-    
-    async def run(self):
-        while True:
-            tasks = [device.getDevProp() for device in self.deviceBox]
-            await asyncio.gather(*tasks)
-            telemetry_data=[]
-            for dev in self.deviceBox:
-                telemetry_dict = dev.packTelemetry()
-                telemetry_data.append(telemetry_dict)
-            message_payload = json.dumps(telemetry_data)
-            message = Message(message_payload)
-            #message.content_encoding = "utf-8"
-            #message.content_type = "application/json"
-            
-            print("Sending d2c: {}".format(message))
-            self.iotClient.send_message(message)
-            print("d2c sent.")
-            await asyncio.sleep(60)
-       
-        
+            print(f"Exception 1: {str(e)}")
+    try:
+        client.on_twin_desired_properties_patch_received = twin_patch_handler
+    except Exception as e:
+        print(f"Exception 2: {str(e)}")
+
+
+async def run_emergency_stop(opc_client, device_name):
+    nodeES = opc_client.get_node(f"ns=2;s={device_name}/EmergencyStop")
+    node = opc_client.get_node(f"ns=2;s={device_name}")
+    await node.call_method(nodeES)
+    print("Emergency stop called. Success")
+
+
+async def run_res_err_status(opc_client, device_name):
+    nodeRES = opc_client.get_node(f"ns=2;s={device_name}/ResetErrorStatus")
+    node = opc_client.get_node(f"ns=2;s={device_name}")
+    await node.call_method(nodeRES)
+    print("Reset error status called. Success")
+
+
+async def take_direct_method(client, opc_client):
+    def handle_method(request):
+        try:
+            print(f"Direct Method called: {request.name}")
+            print(f"Request: {request}")
+            print(f"Payload: {request.payload}")
+
+            if request.name == "emergency_stop":
+                device_name = request.payload
+                asyncio.run(run_emergency_stop(opc_client, device_name))
+
+            elif request.name == "reset_err_status":
+                device_name = request.payload["DeviceName"]
+                asyncio.run(run_res_err_status(opc_client, device_name))
+
+            response_payload = "Method executed successfully"
+            response = MethodResponse.create_from_method_request(request, 200, payload=response_payload)
+            print(f"Response: {response}")
+            print(f"Payload: {response.payload}")
+            client.send_method_response(response)
+            return response
+        except Exception as e:
+            print(f"Exception caught in handle_method: {str(e)}")
+
+    try:
+        client.on_method_request_received = handle_method
+    except:
+        pass
+
+async def compare_production_rates(twin_patch, lst_devices):
+    for i in range(len(lst_devices)):
+        name = "Device" + str(lst_devices[i].repr)[-1]
+
+        if name in twin_patch.keys() and twin_patch[name] is not None and twin_patch[name]["ProductionRate"] != lst_devices[i].ProductionRate:
+            await lst_devices[i].set_prod_rate()
+            print(f"{name} set production rate successfully")
 
