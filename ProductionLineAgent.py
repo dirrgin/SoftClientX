@@ -25,7 +25,6 @@ async def d2c(client, device, dev_err=False):
 async def twin_reported(client, device):
     reported_props = {"Device" + str(device.repr)[-1]: {"ProductionRate": device.ProductionRate,
                                                             "Errors": device.error}}
-    #print("reported_props: \n\t", reported_props)
     client.patch_twin_reported_properties(reported_props)
 
 
@@ -80,11 +79,10 @@ async def take_direct_method(client, opc_client):
                 device_name = request.payload["DeviceName"]
                 asyncio.run(run_res_err_status(opc_client, device_name))
 
-            response_payload = "Method executed successfully"
-            response = MethodResponse.create_from_method_request(request, 200, payload=response_payload)
-            print(f"Response: {response}")
-            print(f"Payload: {response.payload}")
+            response = MethodResponse.create_from_method_request(request, 200, None)
             client.send_method_response(response)
+            print(f"Response: {response}")
+            
             return response
         except Exception as e:
             print(f"Exception caught in handle_method: {str(e)}")

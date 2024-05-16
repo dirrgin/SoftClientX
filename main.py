@@ -28,9 +28,9 @@ async def main():
     CONNECTION_STRING_MANAGER="HostName=Cirencester-End.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=4THcWqn7NQdn21nYhOcsUm6iWCa3Z4knLAIoTDcDVKI="
     client_opc = Client(opcua_endpoint)
 
-    DEVICE_ID = "demo_device1"
-    iothub_registry_manager = IoTHubRegistryManager(CONNECTION_STRING_MANAGER)
-    await clear_desired_twin(iothub_registry_manager, DEVICE_ID)
+    # DEVICE_ID = "demo_device1"
+    # iothub_registry_manager = IoTHubRegistryManager(CONNECTION_STRING_MANAGER)
+    # await clear_desired_twin(iothub_registry_manager, DEVICE_ID)
     
 
     # Connection to OPC UA server
@@ -61,8 +61,6 @@ async def main():
         twin[key] = None
     client_iot.patch_twin_reported_properties(twin)
 
-
-    lst_dev_err_old = []
     try:
         while True:
             lst = await client_opc.get_objects_node().get_children()
