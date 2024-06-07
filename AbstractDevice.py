@@ -11,7 +11,6 @@ class productionDevice:
         self.goodCount = None
         self.badCount = None
         self.temperature = None
-        #self.deviceError = None
         self.ProductionRate = None
         self.error = None
     def __str__(self):
@@ -32,22 +31,6 @@ class productionDevice:
         err_bin_str = bin(deviceError)[2:].zfill(4)
         self.error = [int(i) for i in err_bin_str]
 
-    def packTelemetry(self):
-        DevError="true" if self.error else "false"
-        formatted_string = MSG_TXT.format(
-            DeviceAddress=str(self.repr),
-            ProductionStatus=self.productionStatus,
-            WorkOrderId=self.workorderId,
-            GoodCount=self.goodCount,
-            BadCount=self.badCount,
-            Temperature=self.temperature,
-            DeviceError = DevError
-        )
-        return formatted_string
-    async def emergencyStop(self):
-        emStop = self.client.get_node(str(self.repr))
-        await self.repr.call_method(emStop)
-
     async def reset_err_status(self):
         reset = self.client.get_node(f"{self.repr}/ResetErrorStatus")
         await self.repr.call_method(reset)
@@ -55,7 +38,7 @@ class productionDevice:
     # direct method
     async def set_prod_rate(self, value=10):
         await self.client.set_values([self.client.get_node(f"{self.repr}/ProductionRate")],
-                                [ua.DataValue(ua.Variant(int(self.ProductionRate + value), ua.VariantType.Int32))])
+                                [ua.DataValue(ua.Variant(int(self.ProductionRate - value), ua.VariantType.Int32))])
 
     
     

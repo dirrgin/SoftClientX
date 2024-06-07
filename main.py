@@ -23,14 +23,15 @@ async def clear_desired_twin(iothub_registry_manager, device):
     twin = iothub_registry_manager.update_twin(device, twin_patch, twin.etag)
 
 async def main():
-    opcua_endpoint = "opc.tcp://10.103.0.110:4840/"
+    #opcua_endpoint = "opc.tcp://10.103.0.110:4840/"
+    opcua_endpoint = "opc.tcp://172.20.10.10:4840/"
     CONNECTION_STRING = "HostName=Cirencester-End.azure-devices.net;DeviceId=demo_device1;SharedAccessKey=rq4bvlv6Jd3UEKJL6zHVt2IuwdpKbHhwMAIoTHcgMho="
     CONNECTION_STRING_MANAGER="HostName=Cirencester-End.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=4THcWqn7NQdn21nYhOcsUm6iWCa3Z4knLAIoTDcDVKI="
     client_opc = Client(opcua_endpoint)
 
-    # DEVICE_ID = "demo_device1"
-    # iothub_registry_manager = IoTHubRegistryManager(CONNECTION_STRING_MANAGER)
-    # await clear_desired_twin(iothub_registry_manager, DEVICE_ID)
+    DEVICE_ID = "demo_device1"
+    iothub_registry_manager = IoTHubRegistryManager(CONNECTION_STRING_MANAGER)
+    await clear_desired_twin(iothub_registry_manager, DEVICE_ID)
     
 
     # Connection to OPC UA server
@@ -56,7 +57,7 @@ async def main():
 
     # Clean the reported twin
     twin = client_iot.get_twin()['reported']
-    del twin["$version"]
+    twin.pop("$version", None)
     for key, value in twin.items():
         twin[key] = None
     client_iot.patch_twin_reported_properties(twin)
@@ -78,20 +79,20 @@ async def main():
                 await device.getDevProp()
                 lst_machines.append(device)
                 lst_dev_err_new.append(device.error)
-                #print("\t write devices in list and update data ", i)
-                #print(lst_machines[i])
-                #print(lst_dev_err_new[i])
-
             await receive_twin_desired(client_iot, lst_machines)
             print("after receive_twin_desired")
-            # print actual data about our devices
             for j in range(len(lst_machines)):
-                print("\t device ** :", str(lst_machines[j].repr))
-                await d2c(client_iot, lst_machines[j])
-                await twin_reported(client_iot, lst_machines[j])
+                try:
+                    await d2c(client_iot, lst_machines[j])
+                    await twin_reported(client_iot, lst_machines[j])
+                except asyncio.TimeoutError:
+                    print("Timeout error while sending d2c/twin_reported to IoT Hub")
+                except asyncio.CancelledError:
+                    print("Task was cancelled")
+                except Exception as e:
+                    print(f"An unexpected error occurred: {e}")
 
-            # take a direct methods and call them
-            await take_direct_method(client_iot, client_opc)#🌐
+            await take_direct_method(client_iot, client_opc)
 
             time.sleep(10)
     except KeyboardInterrupt:
