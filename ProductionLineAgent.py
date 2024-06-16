@@ -1,7 +1,7 @@
 import time, json
 from azure.iot.device import IoTHubDeviceClient, Message, IoTHubModuleClient, MethodResponse, MethodRequest, Message
 from AbstractDevice import productionDevice, asyncio
-
+    
 async def d2c(client, device):
     message = {}
     message["DeviceName"] = str(device.repr)[7:]
@@ -17,8 +17,29 @@ async def d2c(client, device):
         message["IsDevErr"] = "true"
     else:
         message["IsDevErr"] = "false"
-    print(message["IsDevErr"])
-    client.send_message(str(message))
+    message_json = json.dumps(message)
+    client.send_message(message_json.encode('utf-8'))
+
+#When value changes, a single D2C message must be sent to IoT platform
+async def d2c_Error(client, device):
+    message = {}
+    message["DeviceName"] = str(device.repr)[7:]
+    message["ProductionStatus"] = 3
+    define_error = ""
+    if device.error[0]==1:
+        define_error+="Unknown, "
+    if device.error[1]==1:
+        define_error+="Sensor Failure, "
+    if device.error[2]==1:
+        define_error+="Power Failure, "  
+    if device.error[3]==1:
+        define_error+="Emergency Stop"  
+    if define_error.endswith(", "):
+        define_error = define_error[:-2] + "."
+    message["DeviceError"] = define_error
+    print(message)
+    message_json = json.dumps(message)
+    client.send_message(message_json.encode('utf-8'))
 
 async def twin_reported(client, device):
     reported_props = {"Device" + str(device.repr)[-1]: {"ProductionRate": device.ProductionRate,

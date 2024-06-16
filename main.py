@@ -4,11 +4,10 @@ from AbstractDevice import productionDevice, asyncio, ua
 from asyncua import Client
 from ProductionLineAgent import \
     IoTHubModuleClient, \
-    Message, \
     d2c, \
     twin_reported, \
     receive_twin_desired, \
-    take_direct_method
+    take_direct_method, d2c_Error
 from azure.iot.hub import IoTHubRegistryManager
 from azure.iot.hub.models import Twin, TwinProperties
 
@@ -23,8 +22,8 @@ async def clear_desired_twin(iothub_registry_manager, device):
     twin = iothub_registry_manager.update_twin(device, twin_patch, twin.etag)
 
 async def main():
-    #opcua_endpoint = "opc.tcp://10.103.0.110:4840/"
-    opcua_endpoint = "opc.tcp://172.20.10.10:4840/"
+    opcua_endpoint = "opc.tcp://10.103.0.110:4840/"
+    #opcua_endpoint = "opc.tcp://172.20.10.10:4840/"
     CONNECTION_STRING = "HostName=Cirencester-End.azure-devices.net;DeviceId=demo_device1;SharedAccessKey=rq4bvlv6Jd3UEKJL6zHVt2IuwdpKbHhwMAIoTHcgMho="
     CONNECTION_STRING_MANAGER="HostName=Cirencester-End.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=4THcWqn7NQdn21nYhOcsUm6iWCa3Z4knLAIoTDcDVKI="
     client_opc = Client(opcua_endpoint)
@@ -80,11 +79,13 @@ async def main():
                 lst_machines.append(device)
                 lst_dev_err_new.append(device.error)
             await receive_twin_desired(client_iot, lst_machines)
-            print("after receive_twin_desired")
+            
             for j in range(len(lst_machines)):
                 try:
                     await d2c(client_iot, lst_machines[j])
                     await twin_reported(client_iot, lst_machines[j])
+                    if lst_dev_err_new[i]!=lst_machines[j].error:
+                        await d2c_Error(client_iot, lst_machines[j])
                 except asyncio.TimeoutError:
                     print("Timeout error while sending d2c/twin_reported to IoT Hub")
                 except asyncio.CancelledError:

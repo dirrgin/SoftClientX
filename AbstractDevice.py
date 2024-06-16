@@ -6,12 +6,12 @@ class productionDevice:
     def __init__(self, client, repr):
         self.client = client
         self.repr = repr
-        self.productionStatus = None
-        self.workorderId = None
-        self.goodCount = None
-        self.badCount = None
-        self.temperature = None
-        self.ProductionRate = None
+        self.productionStatus = 0
+        self.workorderId = 0
+        self.goodCount = 0
+        self.badCount = 0
+        self.temperature = 0
+        self.ProductionRate = 0
         self.error = None
     def __str__(self):
         return (f"Production Status: {self.productionStatus}, Workorder ID: {self.workorderId}, "
@@ -36,9 +36,9 @@ class productionDevice:
         await self.repr.call_method(reset)
 
     # direct method
-    async def set_prod_rate(self, value=10):
+    async def set_prod_rate(self, value):
         await self.client.set_values([self.client.get_node(f"{self.repr}/ProductionRate")],
-                                [ua.DataValue(ua.Variant(int(self.ProductionRate - value), ua.VariantType.Int32))])
+                                [ua.DataValue(ua.Variant(int(value), ua.VariantType.Int32))])
 
     
     
