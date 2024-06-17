@@ -60,32 +60,34 @@ async def main():
     for key, value in twin.items():
         twin[key] = None
     client_iot.patch_twin_reported_properties(twin)
-
+    # list of errors
+    lst_dev_err_new = []
     try:
         while True:
-            lst = await client_opc.get_objects_node().get_children()
-            lst = lst[1:]
-
             # list of actual devices
             lst_machines = []
-            # actualization
-            lst_dev_err_new = []
-
+            lst = await client_opc.get_objects_node().get_children()
+            lst = lst[1:]
             # write devices in list and update data
             for i in range(len(lst)):
                 nodeRepr = client_opc.get_node(lst[i])
                 device = productionDevice(client_opc, nodeRepr)
                 await device.getDevProp()
                 lst_machines.append(device)
-                lst_dev_err_new.append(device.error)
+                if i >= len(lst_dev_err_new):
+                    lst_dev_err_new.append(device.error)
             await receive_twin_desired(client_iot, lst_machines)
-            
+            print( f"length of lst_dev_err_new {len(lst_dev_err_new)},\t lst_machines is {len(lst_machines)}")
             for j in range(len(lst_machines)):
                 try:
                     await d2c(client_iot, lst_machines[j])
                     await twin_reported(client_iot, lst_machines[j])
-                    if lst_dev_err_new[i]!=lst_machines[j].error:
+                    print(f"{j}: old error: {lst_dev_err_new[j]}, \t new error: {lst_machines[j].error}\n")
+                    if lst_dev_err_new[j]!=lst_machines[j].error:
                         await d2c_Error(client_iot, lst_machines[j])
+                        lst_dev_err_new[j] = lst_machines[j].error
+
+                        
                 except asyncio.TimeoutError:
                     print("Timeout error while sending d2c/twin_reported to IoT Hub")
                 except asyncio.CancelledError:

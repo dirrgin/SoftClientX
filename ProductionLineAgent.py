@@ -25,6 +25,11 @@ async def d2c_Error(client, device):
     message = {}
     message["DeviceName"] = str(device.repr)[7:]
     message["ProductionStatus"] = 3
+    message["WorkorderId"] = "doesnt matter"
+    message["ProductionRate"] = 0
+    message["GoodCount"] = 0
+    message["BadCount"] = 0
+    message["Temperature"] = 0
     define_error = ""
     if device.error[0]==1:
         define_error+="Unknown, "
@@ -37,7 +42,7 @@ async def d2c_Error(client, device):
     if define_error.endswith(", "):
         define_error = define_error[:-2] + "."
     message["DeviceError"] = define_error
-    print(message)
+    message["IsDevErr"] = "true"
     message_json = json.dumps(message)
     client.send_message(message_json.encode('utf-8'))
 
