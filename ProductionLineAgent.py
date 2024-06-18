@@ -25,7 +25,7 @@ async def d2c_Error(client, device):
     message = {}
     message["DeviceName"] = str(device.repr)[7:]
     message["ProductionStatus"] = 3
-    message["WorkorderId"] = "doesnt matter"
+    message["WorkorderId"] = device.workorderId
     message["ProductionRate"] = 0
     message["GoodCount"] = 0
     message["BadCount"] = 0
@@ -40,7 +40,7 @@ async def d2c_Error(client, device):
     if device.error[3]==1:
         define_error+="Emergency Stop"  
     if define_error.endswith(", "):
-        define_error = define_error[:-2] + "."
+        define_error = define_error[:-2]
     message["DeviceError"] = define_error
     message["IsDevErr"] = "true"
     message_json = json.dumps(message)

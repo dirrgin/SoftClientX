@@ -77,16 +77,17 @@ async def main():
                 if i >= len(lst_dev_err_new):
                     lst_dev_err_new.append(device.error)
             await receive_twin_desired(client_iot, lst_machines)
-            print( f"length of lst_dev_err_new {len(lst_dev_err_new)},\t lst_machines is {len(lst_machines)}")
+            
             for j in range(len(lst_machines)):
                 try:
+                    print("@")
                     await d2c(client_iot, lst_machines[j])
                     await twin_reported(client_iot, lst_machines[j])
-                    print(f"{j}: old error: {lst_dev_err_new[j]}, \t new error: {lst_machines[j].error}\n")
+                    
                     if lst_dev_err_new[j]!=lst_machines[j].error:
                         await d2c_Error(client_iot, lst_machines[j])
                         lst_dev_err_new[j] = lst_machines[j].error
-
+                        print("...")
                         
                 except asyncio.TimeoutError:
                     print("Timeout error while sending d2c/twin_reported to IoT Hub")
