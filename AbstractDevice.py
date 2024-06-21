@@ -1,13 +1,13 @@
 #classes with object obstractions
-import asyncio
 from asyncua import ua
-MSG_TXT = '{{"DeviceAddress": {DeviceAddress}, "ProductionStatus": {ProductionStatus}, "WorkOrderId": {WorkOrderId}, "GoodCount": {GoodCount}, "BadCount": {BadCount}, "Temperature": {Temperature}, DeviceError: {DeviceError}}}'
+import asyncio
 class productionDevice:
-    def __init__(self, client, repr):
+    def __init__(self, client, repr, azureId):
+        self.azureId = azureId
         self.client = client
         self.repr = repr
         self.productionStatus = 0
-        self.workorderId = 0
+        self.workorderId = None
         self.goodCount = 0
         self.badCount = 0
         self.temperature = 0
@@ -18,7 +18,7 @@ class productionDevice:
                 f"Good Count: {self.goodCount}, Bad Count: {self.badCount}, "
                 f"Temperature: {self.temperature}, Device Error: {self.deviceError}, "
                 f"Production Rate: {self.ProductionRate}, "
-                f"Calculated Error: {self.error}.")
+                f"Calculated Error: {self.error}, Abstract Name: {self.iotName}.")
     async def getDevProp(self):
         self.productionStatus = await self.client.get_node(f"{self.repr}/ProductionStatus").get_value()
         self.workorderId = await self.client.get_node(f"{self.repr}/WorkorderId").get_value()
