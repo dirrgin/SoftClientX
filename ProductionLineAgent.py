@@ -1,7 +1,7 @@
 import json,sys
 from azure.iot.device import IoTHubModuleClient, MethodResponse
 from AbstractDevice import asyncio
-
+#from azure.iot.hub.models import Twin, TwinProperties
 
 async def connect_to_devices(connection_strings):
     productionLine=[]
@@ -19,6 +19,16 @@ async def connect_to_devices(connection_strings):
             else:
                 print("Device connection success! ")
     return productionLine
+
+'''async def clear_desired_twin(iothub_registry_manager, device):
+    twin = iothub_registry_manager.get_twin(device)
+    des = twin.properties.desired
+    del des["$metadata"]
+    del des["$version"]
+    for key, value in des.items():
+        des[key] = None
+    twin_patch = Twin(properties=TwinProperties(desired=des))
+    twin = iothub_registry_manager.update_twin(device, twin_patch, twin.etag)'''
 
 def clean_twin(productionLine):
     for client_iot in productionLine:
@@ -41,8 +51,8 @@ async def d2c(client, machine):
     message["BadCount"] = machine.badCount
     message["Temperature"] = machine.temperature
     message["DeviceError"] = machine.error
-    error_sum = sum(_ for _ in range(len(machine.error)))
-    if error_sum>0:
+    error_sum = sum(machine.error)
+    if error_sum > 0:
         message["IsDevErr"] = "true"
     else:
         message["IsDevErr"] = "false"
@@ -73,6 +83,7 @@ async def d2c_Error(client, machine):
         define_error = define_error[:-2]
     message["DeviceError"] = define_error
     message["IsDevErr"] = "true"
+    print("d2c error: ", define_error)
     message_json = json.dumps(message)
     client.send_message(message_json.encode('utf-8'))
 
@@ -103,11 +114,11 @@ async def receive_twin_desired(client, machine):
                 asyncio.run(machine.set_prod_rate(rate))
                 print(f"{name} set production rate successfully to {rate}")
         except Exception as e:
-            print(f"Exception 1: {str(e)}")
+            print(f"Exception in twin_patch_handler: {str(e)}")
     try:
         client.on_twin_desired_properties_patch_received = twin_patch_handler
     except Exception as e:
-        print(f"Exception 2: {str(e)}")
+        print(f"Exception in receive_twin_desired: {str(e)}")
 
 
 async def run_emergency_stop(opc_client, device_name):

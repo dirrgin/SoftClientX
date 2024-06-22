@@ -2,6 +2,8 @@ import random, string, os
 from azure.servicebus.aio import ServiceBusClient
 from azure.servicebus import ServiceBusMessage
 from dotenv import load_dotenv
+import asyncio
+
 load_dotenv()
 servicebus_connection_str = os.getenv('AZURE_SERVICE_BUS_CONNECTION_STRING')
 queue_name1 = os.getenv('QUEUE_CREATE')
@@ -16,7 +18,7 @@ async def prepareIngredients(nodes):
     for device_id in device_ids:
         valid_device_id = device_id.replace(' ', '_').replace('/', '_')
         unique_device_id = generate_unique_id(valid_device_id)
-        print(f"Unique Device ID: {unique_device_id}")
+        #print(f"Unique Device ID: {unique_device_id}")
         unique_device_ids.append(unique_device_id)
     return unique_device_ids
 
@@ -27,10 +29,9 @@ async def send_device_ids(device_ids):
                 for device_id in device_ids:
                     message = ServiceBusMessage(device_id)  
                     await sender.send_messages(message)
-                    print(f"Sent device ID: {device_id}")
+    print(f"Sent device IDs to the queue")
 
-import asyncio
-from azure.servicebus.aio import ServiceBusClient
+
 
 async def poll_create_connections():
     connection_strings = []

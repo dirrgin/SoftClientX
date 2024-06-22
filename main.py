@@ -60,16 +60,17 @@ async def main():
                 try:
                     await lst_machines[j].getDevProp()
                     if lst_dev_err_new[j] != lst_machines[j].error:
-                        await d2c_Error(productionLine[j], lst_machines[j])
+                        if lst_dev_err_new[j] != None: 
+                            await d2c_Error(productionLine[j], lst_machines[j])
                         lst_dev_err_new[j] = lst_machines[j].error
-                        print("Send D2C - new Error State")
+                        #print("Send D2C - new Error State")
                     await receive_twin_desired(productionLine[j], lst_machines[j])
                     await d2c(productionLine[j], lst_machines[j])
                     await twin_reported(productionLine[j], lst_machines[j])
                     print("Send D2C , Twin Reported") 
                     await take_direct_method(productionLine[j], lst_machines[j])      
                 except asyncio.TimeoutError:
-                    print("Timeout error while sending d2c/twin_reported to IoT Hub")
+                    print("Timeout error while awaiting for: d2c/twin_reported/direct method")
                 except asyncio.CancelledError:
                     print("Task was cancelled")
                 except Exception as e:
